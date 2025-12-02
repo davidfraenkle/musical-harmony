@@ -1,0 +1,13 @@
+{
+  "files": {
+    "main.css": "/davidfraenkle/musical-harmony/static/css/main.cf890fdb.css",
+    "main.js": "/davidfraenkle/musical-harmony/static/js/main.aca58e73.js",
+    "index.html": "/davidfraenkle/musical-harmony/index.html",
+    "main.cf890fdb.css.map": "/davidfraenkle/musical-harmony/static/css/main.cf890fdb.css.map",
+    "main.aca58e73.js.map": "/davidfraenkle/musical-harmony/static/js/main.aca58e73.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.cf890fdb.css",
+    "static/js/main.aca58e73.js"
+  ]
+}
