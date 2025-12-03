@@ -11,8 +11,8 @@ const TOTAL_NOTES = 12 * OCTAVES + 1; // C3 to C5
 const BARS = 4;
 const STEPS_PER_BAR = 1; // Simplified: 1 chord per bar
 const TOTAL_STEPS = BARS * STEPS_PER_BAR;
-const DEFAULT_TEMPO = 100; // BPM
-const ACTIVITY_TIME = 20 * 60; // 20 minutes in seconds
+const DEFAULT_TEMPO = 120; // BPM
+const ACTIVITY_TIME = 15 * 60; // 20 minutes in seconds
 
 // Audio Context Singleton
 let audioCtx = null;
