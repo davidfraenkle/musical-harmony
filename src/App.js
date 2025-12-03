@@ -263,7 +263,6 @@ export default function HarmonySolver() {
               Construct a 4-chord progression to create a harmonic loop. 
               Click the grid cells to place notes. 
               <span className="block mt-2 text-slate-400 text-sm">
-                • Try to build a <strong>Major</strong> (Root, +4, +7) or <strong>Minor</strong> (Root, +3, +7) triad in each bar.<br/>
                 • The music will loop automatically. You have 20 minutes to experiment.
               </span>
             </p>
