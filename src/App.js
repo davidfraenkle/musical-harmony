@@ -162,11 +162,11 @@ export default function HarmonySolver() {
       // Update Analysis immediately
       const currentNotes = Array.from(newSet);
       const chordName = identifyChord(currentNotes);
-      setAnalysis(prev => {
+      /*setAnalysis(prev => {
         const newAnalysis = [...prev];
         newAnalysis[barIndex] = chordName;
         return newAnalysis;
-      });
+      });*/
 
       return newGrid;
     });
