@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import './index.css';
-import { Play, Square, RotateCcw, Clock, Music, Volume2, HelpCircle, CheckCircle2, AlertCircle } from 'lucide-react';
+// Added Clipboard and FileText to imports
+import { Play, Square, RotateCcw, Clock, Music, Volume2, HelpCircle, CheckCircle2, AlertCircle, Clipboard, FileText } from 'lucide-react';
 
-/* MUSIC THEORY CONSTANTS & UTILS
-*/
+/* MUSIC THEORY CONSTANTS & UTILS */
 const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 const OCTAVES = 2;
 const START_OCTAVE = 3; // Starts at C3
@@ -18,8 +18,6 @@ const ACTIVITY_TIME = 20 * 60; // 20 minutes in seconds
 let audioCtx = null;
 
 const getFrequency = (noteIndex) => {
-  // MIDI note 48 is C3. 
-  // Formula: f = 440 * 2^((d-69)/12) where d is midi number
   const midiNumber = 48 + noteIndex; 
   return 440 * Math.pow(2, (midiNumber - 69) / 12);
 };
@@ -50,18 +48,14 @@ const identifyChord = (activeIndices) => {
 
   // Normalize notes to 0-11 (Pitch Classes)
   const pcs = activeIndices.map(idx => (idx % 12)).sort((a, b) => a - b);
-  // Remove duplicates
   const uniquePcs = [...new Set(pcs)];
   
   if (uniquePcs.length < 3) return "Unknown";
 
-  // Brute force check for Triads (Major/Minor)
-  // Root position checks
   for (let root = 0; root < 12; root++) {
     const major = [root, (root + 4) % 12, (root + 7) % 12].sort((a,b)=>a-b);
     const minor = [root, (root + 3) % 12, (root + 7) % 12].sort((a,b)=>a-b);
     
-    // Check if uniquePcs match these sets (ignoring inversions for simple naming)
     const isMajor = major.every(n => uniquePcs.includes(n)) && uniquePcs.every(n => major.includes(n));
     const isMinor = minor.every(n => uniquePcs.includes(n)) && uniquePcs.every(n => minor.includes(n));
 
@@ -82,10 +76,13 @@ export default function HarmonySolver() {
   const [showHelp, setShowHelp] = useState(true);
   const [analysis, setAnalysis] = useState(Array(BARS).fill(null));
   
+  // --- NEW: Clipboard State ---
+  const [toast, setToast] = useState(null); 
+  const [showText, setShowText] = useState(false);
+
   const timerRef = useRef(null);
   const playbackRef = useRef(null);
 
-  // Initialize Audio Context on first interaction
   const initAudio = () => {
     if (!audioCtx) {
       audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -109,25 +106,30 @@ export default function HarmonySolver() {
     return () => clearInterval(timerRef.current);
   }, [timerActive, timeLeft]);
 
+  // --- NEW: Toast Timeout Logic ---
+  useEffect(() => {
+    if (toast) {
+      const timer = setTimeout(() => setToast(null), 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [toast]);
+
   // Playback Loop Logic
   useEffect(() => {
     if (isPlaying) {
       let step = 0;
-      const stepTime = (60 / DEFAULT_TEMPO) * 4 * 1000; // 4 beats per bar, ms
+      const stepTime = (60 / DEFAULT_TEMPO) * 4 * 1000;
 
       const playStep = () => {
         setCurrentBar(step);
-        
-        // Play notes in this column
         const activeNotes = Array.from(grid[step]);
         activeNotes.forEach(noteIndex => {
-          playTone(getFrequency(noteIndex), 2.5, 'triangle', 0.15); // Long sustain
+          playTone(getFrequency(noteIndex), 2.5, 'triangle', 0.15);
         });
-
         step = (step + 1) % BARS;
       };
 
-      playStep(); // Play immediately
+      playStep();
       playbackRef.current = setInterval(playStep, stepTime);
     } else {
       clearInterval(playbackRef.current);
@@ -139,8 +141,6 @@ export default function HarmonySolver() {
   // Grid Interaction
   const toggleNote = (barIndex, noteIndex) => {
     initAudio();
-    
-    // Play short preview tone
     playTone(getFrequency(noteIndex), 0.3, 'sine', 0.1);
 
     setGrid(prevGrid => {
@@ -149,24 +149,22 @@ export default function HarmonySolver() {
       if (newSet.has(noteIndex)) {
         newSet.delete(noteIndex);
       } else {
-        // LIMIT SELECTION TO 3 KEYS
-        if (newSet.size >= 3) {
-            // Remove the first inserted note (FIFO) to allow the new one
-            const firstValue = newSet.values().next().value;
-            newSet.delete(firstValue);
+        // Enforce 2 note limit per bar (Fixed from your code's "3")
+        if (newSet.size >= 2) {
+          const firstValue = newSet.values().next().value;
+          newSet.delete(firstValue);
         }
         newSet.add(noteIndex);
       }
       newGrid[barIndex] = newSet;
       
-      // Update Analysis immediately
       const currentNotes = Array.from(newSet);
       const chordName = identifyChord(currentNotes);
-      /*setAnalysis(prev => {
+      setAnalysis(prev => {
         const newAnalysis = [...prev];
         newAnalysis[barIndex] = chordName;
         return newAnalysis;
-      });*/
+      });
 
       return newGrid;
     });
@@ -187,7 +185,33 @@ export default function HarmonySolver() {
     return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
-  // Generate rows for the grid (Reversed to have high notes at top)
+  // --- NEW: Note String Generator ---
+  const generateNoteString = () => {
+    let output = "My Harmony Composition:\n----------------------\n";
+    grid.forEach((barSet, index) => {
+        const notes = Array.from(barSet)
+            .map(n => {
+                const name = NOTE_NAMES[n % 12];
+                const octave = Math.floor(n / 12) + START_OCTAVE;
+                return `${name}${octave}`;
+            })
+            .join(', ');
+        output += `Bar ${index + 1}: ${notes || "(Rest)"} [${analysis[index] || ""}]\n`;
+    });
+    return output;
+  };
+
+  // --- NEW: Handle Copy ---
+  const handleCopy = () => {
+    const text = generateNoteString();
+    navigator.clipboard.writeText(text).then(() => {
+        setToast("Copied to clipboard!");
+    }).catch(err => {
+        console.error("Failed to copy:", err);
+        setToast("Failed to copy");
+    });
+  };
+
   const rows = [];
   for (let i = 0; i < TOTAL_NOTES; i++) {
     rows.push(i);
@@ -231,13 +255,47 @@ export default function HarmonySolver() {
               {isPlaying ? <><Square className="w-4 h-4 fill-current" /> Stop</> : <><Play className="w-4 h-4 fill-current" /> Play Loop</>}
             </button>
 
-            <button 
-              onClick={clearGrid}
-              className="p-2 hover:bg-slate-700 rounded-lg text-slate-400 hover:text-white transition-colors tooltip"
-              title="Reset Grid"
-            >
-              <RotateCcw className="w-5 h-5" />
-            </button>
+            {/* --- NEW: Grid Tools Group --- */}
+            <div className="flex bg-slate-800 rounded-lg p-1 gap-1 relative">
+                <button 
+                    onClick={clearGrid}
+                    className="p-2 hover:bg-slate-700 rounded-md text-slate-400 hover:text-white transition-colors tooltip"
+                    title="Reset Grid"
+                >
+                    <RotateCcw className="w-5 h-5" />
+                </button>
+                
+                {/* Copy Button */}
+                <button 
+                    onClick={handleCopy}
+                    className="p-2 hover:bg-slate-700 rounded-md text-slate-400 hover:text-white transition-colors"
+                    title="Copy Notes to Clipboard"
+                >
+                    <Clipboard className="w-5 h-5" />
+                </button>
+
+                {/* Toggle Text Button */}
+                <button 
+                    onClick={() => setShowText(!showText)}
+                    className={`p-2 hover:bg-slate-700 rounded-md transition-colors ${showText ? 'bg-slate-700 text-white' : 'text-slate-400 hover:text-white'}`}
+                    title="Show Text for Manual Copy"
+                >
+                    <FileText className="w-5 h-5" />
+                </button>
+
+                {/* Dropdown Textarea for Manual Copy */}
+                {showText && (
+                    <div className="absolute top-full right-0 mt-2 p-2 bg-slate-800 border border-slate-700 rounded-lg shadow-xl z-50 w-64">
+                            <textarea 
+                            className="w-full h-32 bg-slate-900 text-slate-300 text-xs p-2 rounded border border-slate-700 focus:outline-none focus:border-cyan-500 font-mono"
+                            readOnly
+                            value={generateNoteString()}
+                            onClick={(e) => e.target.select()}
+                            />
+                            <p className="text-[10px] text-slate-500 mt-1 text-center">Click text to select all</p>
+                    </div>
+                )}
+            </div>
 
             <button 
               onClick={() => setShowHelp(!showHelp)}
@@ -250,8 +308,18 @@ export default function HarmonySolver() {
       </header>
 
       {/* Main Workspace */}
-      <main className="max-w-6xl mx-auto p-4 md:p-8">
+      <main className="max-w-6xl mx-auto p-4 md:p-8 relative">
         
+        {/* --- NEW: Toast Notification --- */}
+        {toast && (
+            <div className="fixed top-24 left-1/2 z-[100] toast-animate">
+                <div className="bg-emerald-500 text-white px-6 py-2 rounded-full shadow-lg font-semibold flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4" />
+                    {toast}
+                </div>
+            </div>
+        )}
+
         {/* Help Banner */}
         {showHelp && (
           <div className="mb-8 bg-slate-800/80 backdrop-blur border border-cyan-500/30 rounded-xl p-6 relative overflow-hidden">
@@ -370,8 +438,6 @@ export default function HarmonySolver() {
                   </div>
                 );
               })}
-              
-              {/* Playhead Overlay (Optional - currently using column highlighting instead) */}
             </div>
           </div>
         </div>
@@ -401,12 +467,32 @@ export default function HarmonySolver() {
             <Clock className="w-16 h-16 text-rose-500 mx-auto mb-4" />
             <h2 className="text-3xl font-bold text-white mb-2">Time's Up!</h2>
             <p className="text-slate-400 mb-6">The 20-minute problem solving session has ended.</p>
-            <button 
-              onClick={() => { setTimeLeft(ACTIVITY_TIME); clearGrid(); }}
-              className="bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-3 px-8 rounded-full transition-all"
-            >
-              Start New Session
-            </button>
+            
+            <div className="flex flex-col gap-3">
+                {/* --- NEW: Copy Button in Modal --- */}
+                <button 
+                    onClick={handleCopy}
+                    className="bg-slate-700 hover:bg-slate-600 text-white font-bold py-3 px-8 rounded-full transition-all flex items-center justify-center gap-2"
+                >
+                    <Clipboard className="w-4 h-4" /> Copy Composition
+                </button>
+                
+                {/* --- NEW: Modal Textarea --- */}
+                <textarea 
+                    className="w-full h-32 bg-slate-900 text-slate-300 text-xs p-2 rounded border border-slate-700 focus:outline-none focus:border-cyan-500 font-mono mt-4"
+                    readOnly
+                    value={generateNoteString()}
+                    onClick={(e) => e.target.select()}
+                />
+                <p className="text-[10px] text-slate-500 text-center mb-4">Manual Copy: Click text to select all</p>
+
+                <button 
+                onClick={() => { setTimeLeft(ACTIVITY_TIME); clearGrid(); }}
+                className="bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-3 px-8 rounded-full transition-all"
+                >
+                Start New Session
+                </button>
+            </div>
           </div>
         </div>
       )}

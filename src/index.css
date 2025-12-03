@@ -1,3 +1,15 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Add this to the bottom of index.css */
+@keyframes fade-in-out {
+  0% { opacity: 0; transform: translateY(10px) translateX(-50%); }
+  20% { opacity: 1; transform: translateY(0) translateX(-50%); }
+  80% { opacity: 1; transform: translateY(0) translateX(-50%); }
+  100% { opacity: 0; transform: translateY(-10px) translateX(-50%); }
+}
+
+.toast-animate {
+  animation: fade-in-out 2s ease-in-out forwards;
+}
