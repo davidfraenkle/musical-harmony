@@ -12,7 +12,7 @@ const BARS = 4;
 const STEPS_PER_BAR = 1; // Simplified: 1 chord per bar
 const TOTAL_STEPS = BARS * STEPS_PER_BAR;
 const DEFAULT_TEMPO = 120; // BPM
-const ACTIVITY_TIME = 15 * 60; // 20 minutes in seconds
+const ACTIVITY_TIME = 15 * 60; // 15 minutes in seconds
 
 // Audio Context Singleton
 let audioCtx = null;
@@ -331,7 +331,8 @@ export default function HarmonySolver() {
               Construct a 4-chord progression to create a harmonic loop. 
               Click the grid cells to place notes. 
               <span className="block mt-2 text-slate-400 text-sm">
-                • The music will loop automatically. You have 20 minutes to experiment.
+                • The music will loop automatically. You have 15 minutes to experiment.
+                • Copy and paste your selectin using the clipboard at the top right.  
               </span>
             </p>
             <button 
@@ -448,13 +449,9 @@ export default function HarmonySolver() {
              <Volume2 className="w-5 h-5 text-emerald-400" />
              <p>Sound is synthesized in-browser.</p>
           </div>
-          <div className="bg-slate-800 p-4 rounded-lg border border-slate-700 flex items-center gap-3">
-             <AlertCircle className="w-5 h-5 text-amber-400" />
-             <p>Use chords C, G, Am, F for a classic progression.</p>
-          </div>
            <div className="bg-slate-800 p-4 rounded-lg border border-slate-700 flex items-center gap-3">
              <Clock className="w-5 h-5 text-rose-400" />
-             <p>Activity ends automatically in 20 minutes.</p>
+             <p>Activity ends automatically in 15 minutes.</p>
           </div>
         </div>
 
