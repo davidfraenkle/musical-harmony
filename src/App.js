@@ -150,7 +150,7 @@ export default function HarmonySolver() {
         newSet.delete(noteIndex);
       } else {
         // Enforce 2 note limit per bar (Fixed from your code's "3")
-        if (newSet.size >= 2) {
+        if (newSet.size >= 3) {
           const firstValue = newSet.values().next().value;
           newSet.delete(firstValue);
         }
