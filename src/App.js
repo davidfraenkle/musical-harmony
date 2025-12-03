@@ -332,7 +332,8 @@ export default function HarmonySolver() {
               Click the grid cells to place notes. 
               <span className="block mt-2 text-slate-400 text-sm">
                 • The music will loop automatically. You have 15 minutes to experiment.
-                • Copy and paste your selectin using the clipboard at the top right.  
+                <br /> 
+                • Copy and paste your selection using the clipboard at the top right.  
               </span>
             </p>
             <button 
