@@ -149,6 +149,12 @@ export default function HarmonySolver() {
       if (newSet.has(noteIndex)) {
         newSet.delete(noteIndex);
       } else {
+        // LIMIT SELECTION TO 3 KEYS
+        if (newSet.size >= 3) {
+            // Remove the first inserted note (FIFO) to allow the new one
+            const firstValue = newSet.values().next().value;
+            newSet.delete(firstValue);
+        }
         newSet.add(noteIndex);
       }
       newGrid[barIndex] = newSet;
