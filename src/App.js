@@ -1,24 +1,40 @@
 import React, { useState, useEffect, useRef } from 'react';
-import './index.css';
-// Added Clipboard and FileText to imports
-import { Play, Square, RotateCcw, Clock, Music, Volume2, HelpCircle, CheckCircle2, AlertCircle, Clipboard, FileText } from 'lucide-react';
+// Removed invalid CSS import
+import { Play, Square, RotateCcw, Clock, Music, Volume2, HelpCircle, CheckCircle2, Clipboard, FileText, Lock } from 'lucide-react';
 
 /* MUSIC THEORY CONSTANTS & UTILS */
 const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
-const OCTAVES = 2;
-const START_OCTAVE = 3; // Starts at C3
-const TOTAL_NOTES = 12 * OCTAVES + 1; // C3 to C5
+// Changed to accommodate Bass notes (F2, A2)
+const START_OCTAVE = 2; 
+const OCTAVES = 3; 
+const TOTAL_NOTES = 12 * OCTAVES + 1; // C2 to C5
 const BARS = 4;
-const STEPS_PER_BAR = 1; // Simplified: 1 chord per bar
+const STEPS_PER_BAR = 1; 
 const TOTAL_STEPS = BARS * STEPS_PER_BAR;
-const DEFAULT_TEMPO = 120; // BPM
-const ACTIVITY_TIME = 15 * 60; // 15 minutes in seconds
+const DEFAULT_TEMPO = 120; 
+const ACTIVITY_TIME = 15 * 60; 
+
+// Helper to calculate index
+const getNoteIndex = (note, octave) => {
+  const noteIdx = NOTE_NAMES.indexOf(note);
+  return (octave - START_OCTAVE) * 12 + noteIdx;
+};
+
+// --- FIXED BASS LINE CONFIGURATION ---
+const LOCKED_BASS = {
+  0: getNoteIndex('F', 2), // Bar 1: F2
+  1: getNoteIndex('C', 3), // Bar 2: C3
+  2: getNoteIndex('A', 2), // Bar 3: A2
+  3: getNoteIndex('D', 3)  // Bar 4: D3
+};
 
 // Audio Context Singleton
 let audioCtx = null;
 
 const getFrequency = (noteIndex) => {
-  const midiNumber = 48 + noteIndex; 
+  // Adjusted for new octave range. 
+  // MIDI 36 is C2. Our index 0 is C2.
+  const midiNumber = 36 + noteIndex; 
   return 440 * Math.pow(2, (midiNumber - 69) / 12);
 };
 
@@ -66,9 +82,21 @@ const identifyChord = (activeIndices) => {
   return "Complex/Inversion";
 };
 
+// Helper to Initialize Grid with Bass Line
+const getInitialGrid = () => {
+  return Array(TOTAL_STEPS).fill().map((_, barIndex) => {
+    const set = new Set();
+    // Add locked bass note if it exists for this bar
+    if (LOCKED_BASS[barIndex] !== undefined) {
+      set.add(LOCKED_BASS[barIndex]);
+    }
+    return set;
+  });
+};
+
 export default function HarmonySolver() {
   // State
-  const [grid, setGrid] = useState(Array(TOTAL_STEPS).fill().map(() => new Set()));
+  const [grid, setGrid] = useState(getInitialGrid());
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentBar, setCurrentBar] = useState(-1);
   const [timeLeft, setTimeLeft] = useState(ACTIVITY_TIME);
@@ -76,7 +104,6 @@ export default function HarmonySolver() {
   const [showHelp, setShowHelp] = useState(true);
   const [analysis, setAnalysis] = useState(Array(BARS).fill(null));
   
-  // --- NEW: Clipboard State ---
   const [toast, setToast] = useState(null); 
   const [showText, setShowText] = useState(false);
 
@@ -106,7 +133,7 @@ export default function HarmonySolver() {
     return () => clearInterval(timerRef.current);
   }, [timerActive, timeLeft]);
 
-  // --- NEW: Toast Timeout Logic ---
+  // Toast Timeout Logic
   useEffect(() => {
     if (toast) {
       const timer = setTimeout(() => setToast(null), 2000);
@@ -124,6 +151,7 @@ export default function HarmonySolver() {
         setCurrentBar(step);
         const activeNotes = Array.from(grid[step]);
         activeNotes.forEach(noteIndex => {
+          // Play bass notes slightly louder/different wave if desired, but here unified
           playTone(getFrequency(noteIndex), 2.5, 'triangle', 0.15);
         });
         step = (step + 1) % BARS;
@@ -140,19 +168,37 @@ export default function HarmonySolver() {
 
   // Grid Interaction
   const toggleNote = (barIndex, noteIndex) => {
+    // Check if this is a locked bass note
+    if (LOCKED_BASS[barIndex] === noteIndex) {
+      // Play sound to acknowledge click, but do not change state
+      initAudio();
+      playTone(getFrequency(noteIndex), 0.3, 'sine', 0.1);
+      setToast("Bass line is fixed!");
+      return; 
+    }
+
     initAudio();
     playTone(getFrequency(noteIndex), 0.3, 'sine', 0.1);
 
     setGrid(prevGrid => {
       const newGrid = [...prevGrid];
       const newSet = new Set(newGrid[barIndex]);
+      
       if (newSet.has(noteIndex)) {
         newSet.delete(noteIndex);
       } else {
-        // Enforce 2 note limit per bar (Fixed from your code's "3")
-        if (newSet.size >= 3) {
-          const firstValue = newSet.values().next().value;
-          newSet.delete(firstValue);
+        // Enforce note limit (excluding the bass note for count logic if desired, 
+        // but simple limit of 3-4 total voices is usually good).
+        // Let's allow Bass + 2 User notes = 3 total
+        if (newSet.size >= 4) {
+          // Find the first note that IS NOT the locked bass note to remove
+          const lockedNote = LOCKED_BASS[barIndex];
+          for (let val of newSet) {
+             if (val !== lockedNote) {
+                 newSet.delete(val);
+                 break;
+             }
+          }
         }
         newSet.add(noteIndex);
       }
@@ -160,6 +206,7 @@ export default function HarmonySolver() {
       
       const currentNotes = Array.from(newSet);
       const chordName = identifyChord(currentNotes);
+      // Optional: Updates analysis state immediately if you uncomment
       /*setAnalysis(prev => {
         const newAnalysis = [...prev];
         newAnalysis[barIndex] = chordName;
@@ -173,7 +220,8 @@ export default function HarmonySolver() {
   };
 
   const clearGrid = () => {
-    setGrid(Array(TOTAL_STEPS).fill().map(() => new Set()));
+    // Resets to the initial state (containing Bass Line)
+    setGrid(getInitialGrid());
     setAnalysis(Array(BARS).fill(null));
     setIsPlaying(false);
     setCurrentBar(-1);
@@ -185,7 +233,6 @@ export default function HarmonySolver() {
     return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
-  // --- NEW: Note String Generator ---
   const generateNoteString = () => {
     let output = "My Harmony Composition:\n----------------------\n";
     grid.forEach((barSet, index) => {
@@ -201,7 +248,6 @@ export default function HarmonySolver() {
     return output;
   };
 
-  // --- NEW: Handle Copy ---
   const handleCopy = () => {
     const text = generateNoteString();
     navigator.clipboard.writeText(text).then(() => {
@@ -220,6 +266,16 @@ export default function HarmonySolver() {
 
   return (
     <div className="min-h-screen bg-slate-900 text-slate-100 font-sans selection:bg-cyan-500 selection:text-white">
+      <style>{`
+        @keyframes slideIn {
+          from { transform: translate(-50%, -20px); opacity: 0; }
+          to { transform: translate(-50%, 0); opacity: 1; }
+        }
+        .toast-animate {
+          animation: slideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+      `}</style>
+
       {/* Header */}
       <header className="bg-slate-800 border-b border-slate-700 p-4 sticky top-0 z-50 shadow-lg">
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
@@ -232,7 +288,7 @@ export default function HarmonySolver() {
               <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-purple-400">
                 Harmonic Solver
               </h1>
-              <p className="text-xs text-slate-400">4-Bar Chord Construction</p>
+              <p className="text-xs text-slate-400">Fixed Bass Line Edition</p>
             </div>
           </div>
 
@@ -255,12 +311,12 @@ export default function HarmonySolver() {
               {isPlaying ? <><Square className="w-4 h-4 fill-current" /> Stop</> : <><Play className="w-4 h-4 fill-current" /> Play Loop</>}
             </button>
 
-            {/* --- NEW: Grid Tools Group --- */}
+            {/* Grid Tools Group */}
             <div className="flex bg-slate-800 rounded-lg p-1 gap-1 relative">
                 <button 
                     onClick={clearGrid}
                     className="p-2 hover:bg-slate-700 rounded-md text-slate-400 hover:text-white transition-colors tooltip"
-                    title="Reset Grid"
+                    title="Reset to Bass Line"
                 >
                     <RotateCcw className="w-5 h-5" />
                 </button>
@@ -310,11 +366,11 @@ export default function HarmonySolver() {
       {/* Main Workspace */}
       <main className="max-w-6xl mx-auto p-4 md:p-8 relative">
         
-        {/* --- NEW: Toast Notification --- */}
+        {/* Toast Notification */}
         {toast && (
             <div className="fixed top-24 left-1/2 z-[100] toast-animate">
                 <div className="bg-emerald-500 text-white px-6 py-2 rounded-full shadow-lg font-semibold flex items-center gap-2">
-                    <CheckCircle2 className="w-4 h-4" />
+                    {toast.includes('Fixed') ? <Lock className='w-4 h-4' /> : <CheckCircle2 className="w-4 h-4" />}
                     {toast}
                 </div>
             </div>
@@ -328,12 +384,12 @@ export default function HarmonySolver() {
               <CheckCircle2 className="w-5 h-5" /> Activity Brief
             </h2>
             <p className="text-slate-300 leading-relaxed max-w-3xl">
-              Construct a 4-chord progression to create a harmonic loop. 
-              Click the grid cells to place notes. 
+              Construct a 4-chord progression over the <strong>fixed bass line (F-C-A-D)</strong>. 
+              Click the grid cells to place harmony notes above the bass.
               <span className="block mt-2 text-slate-400 text-sm">
-                • The music will loop automatically. You have 15 minutes to experiment.
+                • The bass notes are locked and cannot be removed.
                 <br /> 
-                • Copy and paste your selection using the clipboard at the top right.  
+                • The music will loop automatically. You have 15 minutes.
               </span>
             </p>
             <button 
@@ -395,7 +451,7 @@ export default function HarmonySolver() {
                       </div>
                     </div>
                   </div>
-                );
+                 );
               })}
             </div>
 
@@ -409,30 +465,33 @@ export default function HarmonySolver() {
                     {Array(BARS).fill(0).map((_, barIndex) => {
                       const isActive = grid[barIndex].has(noteIndex);
                       const isPlayingBar = currentBar === barIndex;
+                      const isLocked = LOCKED_BASS[barIndex] === noteIndex;
                       
                       return (
                         <div 
                           key={`cell-${barIndex}-${noteIndex}`}
                           className={`
-                            flex-1 min-w-[120px] border-r border-b border-slate-700/50 relative cursor-pointer transition-all duration-100
+                            flex-1 min-w-[120px] border-r border-b border-slate-700/50 relative transition-all duration-100
                             ${isBlackKey ? 'bg-slate-800/30' : 'bg-slate-800/10'}
                             ${isPlayingBar ? 'bg-white/5' : ''}
-                            hover:bg-white/10
+                            ${isLocked ? 'cursor-not-allowed' : 'cursor-pointer hover:bg-white/10'}
                           `}
                           onClick={() => toggleNote(barIndex, noteIndex)}
                         >
                           {/* Note Block */}
                           <div 
                             className={`
-                              absolute inset-1 rounded-md shadow-sm transform transition-all duration-200
+                              absolute inset-1 rounded-md shadow-sm transform transition-all duration-200 flex items-center justify-center
                               ${isActive 
                                 ? 'scale-100 opacity-100' 
                                 : 'scale-50 opacity-0'}
-                              ${isPlayingBar && isActive
-                                ? 'bg-cyan-400 shadow-[0_0_15px_rgba(34,211,238,0.6)]' 
-                                : 'bg-cyan-600'}
+                              ${isLocked 
+                                ? 'bg-purple-600 shadow-[0_0_10px_rgba(147,51,234,0.4)]' // Style for Bass Notes
+                                : (isPlayingBar && isActive ? 'bg-cyan-400 shadow-[0_0_15px_rgba(34,211,238,0.6)]' : 'bg-cyan-600') // Style for User Notes
+                               }
                             `}
                           >
+                             {isLocked && <Lock className="w-3 h-3 text-purple-200 opacity-70" />}
                           </div>
                         </div>
                       );
@@ -450,6 +509,10 @@ export default function HarmonySolver() {
              <Volume2 className="w-5 h-5 text-emerald-400" />
              <p>Sound is synthesized in-browser.</p>
           </div>
+          <div className="bg-slate-800 p-4 rounded-lg border border-slate-700 flex items-center gap-3">
+             <div className="w-4 h-4 rounded-sm bg-purple-600"></div>
+             <p>Purple notes are the fixed Bass Line.</p>
+          </div>
            <div className="bg-slate-800 p-4 rounded-lg border border-slate-700 flex items-center gap-3">
              <Clock className="w-5 h-5 text-rose-400" />
              <p>Activity ends automatically in 15 minutes.</p>
@@ -464,10 +527,10 @@ export default function HarmonySolver() {
           <div className="bg-slate-800 p-8 rounded-2xl border border-slate-600 shadow-2xl max-w-md text-center">
             <Clock className="w-16 h-16 text-rose-500 mx-auto mb-4" />
             <h2 className="text-3xl font-bold text-white mb-2">Time's Up!</h2>
-            <p className="text-slate-400 mb-6">The 20-minute problem solving session has ended.</p>
+            <p className="text-slate-400 mb-6">The problem solving session has ended.</p>
             
             <div className="flex flex-col gap-3">
-                {/* --- NEW: Copy Button in Modal --- */}
+                {/* Copy Button in Modal */}
                 <button 
                     onClick={handleCopy}
                     className="bg-slate-700 hover:bg-slate-600 text-white font-bold py-3 px-8 rounded-full transition-all flex items-center justify-center gap-2"
@@ -475,7 +538,7 @@ export default function HarmonySolver() {
                     <Clipboard className="w-4 h-4" /> Copy Composition
                 </button>
                 
-                {/* --- NEW: Modal Textarea --- */}
+                {/* Modal Textarea */}
                 <textarea 
                     className="w-full h-32 bg-slate-900 text-slate-300 text-xs p-2 rounded border border-slate-700 focus:outline-none focus:border-cyan-500 font-mono mt-4"
                     readOnly
