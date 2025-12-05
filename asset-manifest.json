@@ -1,13 +1,13 @@
 {
   "files": {
-    "main.css": "/musical-harmony/static/css/main.8b8bede8.css",
-    "main.js": "/musical-harmony/static/js/main.bb781008.js",
+    "main.css": "/musical-harmony/static/css/main.6afc6c8b.css",
+    "main.js": "/musical-harmony/static/js/main.f661c2e7.js",
     "index.html": "/musical-harmony/index.html",
-    "main.8b8bede8.css.map": "/musical-harmony/static/css/main.8b8bede8.css.map",
-    "main.bb781008.js.map": "/musical-harmony/static/js/main.bb781008.js.map"
+    "main.6afc6c8b.css.map": "/musical-harmony/static/css/main.6afc6c8b.css.map",
+    "main.f661c2e7.js.map": "/musical-harmony/static/js/main.f661c2e7.js.map"
   },
   "entrypoints": [
-    "static/css/main.8b8bede8.css",
-    "static/js/main.bb781008.js"
+    "static/css/main.6afc6c8b.css",
+    "static/js/main.f661c2e7.js"
   ]
 }
